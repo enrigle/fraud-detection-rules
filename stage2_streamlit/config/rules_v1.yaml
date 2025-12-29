@@ -1,0 +1,81 @@
+# config/rules_v1.yaml
+version: "1.0"
+domain: "fraud_detection"
+created_at: "2025-01-15"
+
+# Feature definitions (for validation)
+features:
+  transaction_amount:
+    type: float
+    min: 0
+    max: 1000000
+  transaction_velocity_24h:
+    type: int
+    description: "Number of transactions in last 24 hours"
+  is_new_device:
+    type: bool
+  country_mismatch:
+    type: bool
+    description: "Transaction country differs from account country"
+  merchant_category:
+    type: string
+    allowed: ["retail", "travel", "gambling", "crypto", "electronics"]
+
+# Decision tree rules (evaluated top-to-bottom, first match wins)
+rules:
+  - id: "RULE_001"
+    name: "High-value crypto from new device"
+    conditions:
+      - field: "transaction_amount"
+        operator: ">"
+        value: 5000
+      - field: "merchant_category"
+        operator: "=="
+        value: "crypto"
+      - field: "is_new_device"
+        operator: "=="
+        value: true
+    logic: "AND"
+    outcome:
+      risk_score: 95
+      decision: "BLOCK"
+      reason: "High-value crypto transaction from unrecognized device"
+
+  - id: "RULE_002"
+    name: "Velocity spike with country mismatch"
+    conditions:
+      - field: "transaction_velocity_24h"
+        operator: ">"
+        value: 10
+      - field: "country_mismatch"
+        operator: "=="
+        value: true
+    logic: "AND"
+    outcome:
+      risk_score: 85
+      decision: "REVIEW"
+      reason: "Unusual transaction velocity from foreign location"
+
+  - id: "RULE_003"
+    name: "Gambling high amount"
+    conditions:
+      - field: "transaction_amount"
+        operator: ">"
+        value: 1000
+      - field: "merchant_category"
+        operator: "=="
+        value: "gambling"
+    logic: "AND"
+    outcome:
+      risk_score: 70
+      decision: "REVIEW"
+      reason: "Large gambling transaction"
+
+  - id: "DEFAULT"
+    name: "Default - Allow"
+    conditions: []
+    logic: "ALWAYS"
+    outcome:
+      risk_score: 10
+      decision: "ALLOW"
+      reason: "No risk indicators detected"
